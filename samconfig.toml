@@ -1,0 +1,10 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "yoprogrammerSubscriberStack"
+resolve_s3 = true
+s3_prefix = "yoprogrammerSubscriberStack"
+region = "ap-south-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = "NotificationEmail=\"himanshugupta0007@outlook.com\""
+image_repositories = []

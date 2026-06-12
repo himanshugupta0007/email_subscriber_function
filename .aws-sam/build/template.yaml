@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Yo Programmer landing page email subscriber backend (SAM)
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 128
+    Architectures:
+    - x86_64
+Parameters:
+  NotificationEmail:
+    Type: String
+    Description: Email address that receives SNS notifications when a new subscriber
+      is added.
+  AllowedOrigin:
+    Type: String
+    Default: '*'
+    Description: Allowed CORS origin for the subscribers API.
+  ApiThrottlingBurstLimit:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    Description: API Gateway HTTP API burst limit.
+  ApiThrottlingRateLimit:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    Description: API Gateway HTTP API steady-state requests per second.
+Resources:
+  SubscribersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: yo-programmer-subscribers
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: email
+        AttributeType: S
+      KeySchema:
+      - AttributeName: email
+        KeyType: HASH
+  SubscriberNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: yo-programmer-subscriber-notifications
+  SubscriberNotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn:
+        Ref: SubscriberNotificationTopic
+      Protocol: email
+      Endpoint:
+        Ref: NotificationEmail
+  SubscribersHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      CorsConfiguration:
+        AllowOrigins:
+        - Ref: AllowedOrigin
+        AllowMethods:
+        - GET
+        - POST
+        - OPTIONS
+        AllowHeaders:
+        - content-type
+      DefaultRouteSettings:
+        ThrottlingBurstLimit:
+          Ref: ApiThrottlingBurstLimit
+        ThrottlingRateLimit:
+          Ref: ApiThrottlingRateLimit
+  SaveSubscriberFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: yo-programmer-save-subscriber-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: SaveSubscriberAccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            Resource:
+              Fn::GetAtt:
+              - SubscribersTable
+              - Arn
+          - Effect: Allow
+            Action:
+            - sns:Publish
+            Resource:
+              Ref: SubscriberNotificationTopic
+  ListSubscribersFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: yo-programmer-list-subscribers-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: ListSubscribersAccessPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - dynamodb:Scan
+            Resource:
+              Fn::GetAtt:
+              - SubscribersTable
+              - Arn
+  SaveSubscriberFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: yo-programmer-save-subscriber
+      CodeUri: SaveSubscriberFunction
+      Handler: app.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - SaveSubscriberFunctionRole
+        - Arn
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: SubscribersTable
+          TOPIC_ARN:
+            Ref: SubscriberNotificationTopic
+          CORS_ALLOW_ORIGIN:
+            Ref: AllowedOrigin
+      Events:
+        SaveSubscriberApi:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: SubscribersHttpApi
+            Path: /subscribers
+            Method: POST
+    Metadata:
+      SamResourceId: SaveSubscriberFunction
+  ListSubscribersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: yo-programmer-list-subscribers
+      CodeUri: ListSubscribersFunction
+      Handler: app.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - ListSubscribersFunctionRole
+        - Arn
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: SubscribersTable
+          CORS_ALLOW_ORIGIN:
+            Ref: AllowedOrigin
+      Events:
+        ListSubscribersApi:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: SubscribersHttpApi
+            Path: /subscribers
+            Method: GET
+    Metadata:
+      SamResourceId: ListSubscribersFunction
+Outputs:
+  SubscribersApiBaseUrl:
+    Description: HTTP API base URL
+    Value:
+      Fn::Sub: https://${SubscribersHttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  SubscribersApiPath:
+    Description: API path for save/list operations
+    Value: /subscribers
+  SubscribersTableName:
+    Description: DynamoDB table name
+    Value:
+      Ref: SubscribersTable
+  SubscriberNotificationTopicArn:
+    Description: SNS topic ARN for subscriber notifications
+    Value:
+      Ref: SubscriberNotificationTopic
