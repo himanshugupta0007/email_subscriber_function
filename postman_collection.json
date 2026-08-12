@@ -37,14 +37,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"{{email}}\",\n  \"name\": \"Jane Doe\",\n  \"source\": \"landing-page\"\n}"
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"{{email}}\",\n  \"name\": \"Jane Doe\",\n  \"source\": \"landing-page\",\n  \"metadata\": {\n    \"plan\": \"pro\",\n    \"referrer\": \"twitter\",\n    \"age\": 29,\n    \"newsletterOptIn\": true\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/subscribers",
               "host": ["{{base_url}}"],
               "path": ["subscribers"]
             },
-            "description": "Creates a new subscriber. Returns 201 on first insert, 200 if the email is already subscribed for the application."
+            "description": "Creates a new subscriber. Returns 201 on first insert, 200 if the email is already subscribed for the application. 'metadata' is an optional flat JSON object (string/number/boolean/null values only, <=2048 bytes serialized) for any extra info you want to store and later see in the list response."
           },
           "response": []
         },
@@ -68,6 +68,29 @@
               "path": ["subscribers"]
             },
             "description": "name and source are optional; source defaults to 'landing-page'."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - Invalid Metadata Value (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"metadata-invalid-{{email}}\",\n  \"metadata\": {\n    \"nested\": { \"not\": \"allowed\" }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "metadata values must be flat (string/number/boolean/null) - nested objects/arrays are rejected. Expect 400."
           },
           "response": []
         },

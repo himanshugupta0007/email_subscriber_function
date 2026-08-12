@@ -1,5 +1,6 @@
 ﻿import json
 import os
+from decimal import Decimal
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -8,6 +9,12 @@ TABLE_NAME = os.environ["TABLE_NAME"]
 CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "*")
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
+
+
+def _json_default(value):
+    if isinstance(value, Decimal):
+        return int(value) if value % 1 == 0 else float(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def _response(status_code, body):
@@ -19,7 +26,7 @@ def _response(status_code, body):
             "Access-Control-Allow-Headers": "content-type",
             "Access-Control-Allow-Methods": "OPTIONS,GET",
         },
-        "body": json.dumps(body),
+        "body": json.dumps(body, default=_json_default),
     }
 
 

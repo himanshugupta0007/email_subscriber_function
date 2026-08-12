@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from decimal import Decimal
 from email.utils import parseaddr
 
 import boto3
@@ -22,6 +23,12 @@ sns = boto3.client("sns")
 table = dynamodb.Table(TABLE_NAME)
 
 
+def _json_default(value):
+    if isinstance(value, Decimal):
+        return int(value) if value % 1 == 0 else float(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _response(status_code, body):
     return {
         "statusCode": status_code,
@@ -31,7 +38,7 @@ def _response(status_code, body):
             "Access-Control-Allow-Headers": "content-type",
             "Access-Control-Allow-Methods": "OPTIONS,POST",
         },
-        "body": json.dumps(body),
+        "body": json.dumps(body, default=_json_default),
     }
 
 
@@ -89,6 +96,7 @@ def lambda_handler(event, context):
     email = (body.get("email") or "").strip().lower()
     name = (body.get("name") or "").strip()
     source = (body.get("source") or "landing-page").strip()
+    metadata = body.get("metadata") or {}
 
     if not _is_valid_application(application):
         return _response(400, {"message": "A valid application is required"})
@@ -102,6 +110,15 @@ def lambda_handler(event, context):
     if source and len(source) > 80:
         return _response(400, {"message": "Source is too long"})
 
+    if not isinstance(metadata, dict):
+        return _response(400, {"message": "Metadata must be a JSON object"})
+
+    if not all(isinstance(value, (str, int, float, bool, type(None))) for value in metadata.values()):
+        return _response(400, {"message": "Metadata values must be strings, numbers, booleans, or null"})
+
+    if len(json.dumps(metadata)) > 2048:
+        return _response(400, {"message": "Metadata is too large"})
+
     key = {"application": application, "email": email}
 
     existing = table.get_item(Key=key, ProjectionExpression="email")
@@ -114,6 +131,10 @@ def lambda_handler(event, context):
         "email": email,
         "name": name,
         "source": source,
+        "metadata": {
+            key: (Decimal(str(value)) if isinstance(value, float) else value)
+            for key, value in metadata.items()
+        },
         "subscribedAt": datetime.now(timezone.utc).isoformat(),
     }
 
