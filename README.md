@@ -1,11 +1,15 @@
-﻿# Yo Programmer Email Subscriber (AWS SAM)
+# Generic Subscriber Backend (AWS SAM)
 
-This project creates a serverless backend for your landing page:
+This project creates a serverless, multi-application email subscriber backend:
 
-- Save an email subscriber to DynamoDB
-- Fetch all subscribers as a list response
+- Save an email subscriber to DynamoDB, scoped to an `application` identifier
+- Fetch subscribers for a given `application` as a list response
 - Send SNS email notification when a new subscriber is saved
 - Expose a single API Gateway HTTP API endpoint with throttling
+
+Any number of applications can share this stack — subscribers for `app-a` and `app-b` are
+stored and listed independently, and the same email address can subscribe to multiple
+applications.
 
 ## Prerequisites
 
@@ -40,11 +44,11 @@ Use stack outputs:
 ```bash
 curl -X POST "$API_BASE/subscribers" \
   -H "Content-Type: application/json" \
-  -d '{"email":"someone@example.com","name":"Someone","source":"landing-page"}'
+  -d '{"application":"yo-programmer","email":"someone@example.com","name":"Someone","source":"landing-page"}'
 ```
 
 ### List subscribers
 
 ```bash
-curl "$API_BASE/subscribers"
+curl "$API_BASE/subscribers?application=yo-programmer"
 ```

@@ -1,6 +1,6 @@
 ﻿AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Yo Programmer landing page email subscriber backend (SAM)
+Description: Generic multi-application email subscriber backend (SAM)
 
 Globals:
   Function:
@@ -36,19 +36,23 @@ Resources:
   SubscribersTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: yo-programmer-subscribers
+      TableName: subscriber-stack-subscribers
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
+        - AttributeName: application
+          AttributeType: S
         - AttributeName: email
           AttributeType: S
       KeySchema:
-        - AttributeName: email
+        - AttributeName: application
           KeyType: HASH
+        - AttributeName: email
+          KeyType: RANGE
 
   SubscriberNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: yo-programmer-subscriber-notifications
+      TopicName: subscriber-stack-subscriber-notifications
 
   SubscriberNotificationSubscription:
     Type: AWS::SNS::Subscription
@@ -77,7 +81,7 @@ Resources:
   SaveSubscriberFunctionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: yo-programmer-save-subscriber-role
+      RoleName: subscriber-stack-save-subscriber-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -107,7 +111,7 @@ Resources:
   ListSubscribersFunctionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: yo-programmer-list-subscribers-role
+      RoleName: subscriber-stack-list-subscribers-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -126,13 +130,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:Scan
+                  - dynamodb:Query
                 Resource: !GetAtt SubscribersTable.Arn
 
   SaveSubscriberFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: yo-programmer-save-subscriber
+      FunctionName: subscriber-stack-save-subscriber
       CodeUri: src/save_subscriber/
       Handler: app.lambda_handler
       Role: !GetAtt SaveSubscriberFunctionRole.Arn
@@ -152,7 +156,7 @@ Resources:
   ListSubscribersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: yo-programmer-list-subscribers
+      FunctionName: subscriber-stack-list-subscribers
       CodeUri: src/list_subscribers/
       Handler: app.lambda_handler
       Role: !GetAtt ListSubscribersFunctionRole.Arn
@@ -174,11 +178,11 @@ Outputs:
     Value: !Sub "https://${SubscribersHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
 
   SubscribersApiPath:
-    Description: API path for save/list operations
+    Description: API path for save/list operations (application is passed in the body/query string)
     Value: /subscribers
 
   SubscribersTableName:
-    Description: DynamoDB table name
+    Description: DynamoDB table name (partition key application, sort key email)
     Value: !Ref SubscribersTable
 
   SubscriberNotificationTopicArn:

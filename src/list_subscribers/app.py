@@ -2,6 +2,7 @@
 import os
 
 import boto3
+from boto3.dynamodb.conditions import Key
 
 TABLE_NAME = os.environ["TABLE_NAME"]
 CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "*")
@@ -40,11 +41,20 @@ def lambda_handler(event, context):
     if method != "GET":
         return _response(405, {"message": "Method not allowed"})
 
-    result = table.scan()
+    query_params = event.get("queryStringParameters") or {}
+    application = (query_params.get("application") or "").strip()
+
+    if not application:
+        return _response(400, {"message": "An application query parameter is required"})
+
+    result = table.query(KeyConditionExpression=Key("application").eq(application))
     items = result.get("Items", [])
 
     while "LastEvaluatedKey" in result:
-        result = table.scan(ExclusiveStartKey=result["LastEvaluatedKey"])
+        result = table.query(
+            KeyConditionExpression=Key("application").eq(application),
+            ExclusiveStartKey=result["LastEvaluatedKey"],
+        )
         items.extend(result.get("Items", []))
 
     items.sort(key=lambda x: x.get("subscribedAt", ""), reverse=True)
@@ -52,6 +62,7 @@ def lambda_handler(event, context):
     return _response(
         200,
         {
+            "application": application,
             "count": len(items),
             "subscribers": items,
         },

@@ -1,0 +1,243 @@
+{
+  "info": {
+    "name": "Subscriber Function API",
+    "description": "Postman collection for the subscriber-function SAM app: POST /subscribers (save) and GET /subscribers (list). Base URL comes from the SubscribersApiBaseUrl stack output.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com",
+      "type": "string"
+    },
+    {
+      "key": "application",
+      "value": "my-app",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "test@example.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Save Subscriber",
+      "item": [
+        {
+          "name": "Save Subscriber - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"{{email}}\",\n  \"name\": \"Jane Doe\",\n  \"source\": \"landing-page\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "Creates a new subscriber. Returns 201 on first insert, 200 if the email is already subscribed for the application."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - Missing Name/Source (optional fields)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"another-{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "name and source are optional; source defaults to 'landing-page'."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - Invalid Email (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"not-an-email\",\n  \"name\": \"Jane Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "Expect 400: A valid email is required."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - Invalid Application (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"invalid app!\",\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "Application must match ^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$. Expect 400."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - Duplicate Email (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "Run the 'Success' request twice with the same application/email to see the idempotent 200 response."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - Method Not Allowed (405)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "Any method other than POST/OPTIONS returns 405."
+          },
+          "response": []
+        },
+        {
+          "name": "Save Subscriber - CORS Preflight (OPTIONS)",
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "POST"
+              },
+              {
+                "key": "Access-Control-Request-Headers",
+                "value": "content-type"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "List Subscribers",
+      "item": [
+        {
+          "name": "List Subscribers - Success",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subscribers?application={{application}}",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"],
+              "query": [
+                {
+                  "key": "application",
+                  "value": "{{application}}"
+                }
+              ]
+            },
+            "description": "Lists subscribers for the given application, sorted by subscribedAt descending."
+          },
+          "response": []
+        },
+        {
+          "name": "List Subscribers - Missing application param (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "Expect 400: An application query parameter is required."
+          },
+          "response": []
+        },
+        {
+          "name": "List Subscribers - CORS Preflight (OPTIONS)",
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "GET"
+              },
+              {
+                "key": "Access-Control-Request-Headers",
+                "value": "content-type"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

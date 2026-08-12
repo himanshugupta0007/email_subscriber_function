@@ -1,8 +1,8 @@
 version = 0.1
 [default.deploy.parameters]
-stack_name = "yoprogrammerSubscriberStack"
+stack_name = "subscriberStack"
 resolve_s3 = true
-s3_prefix = "yoprogrammerSubscriberStack"
+s3_prefix = "subscriberStack"
 region = "ap-south-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_NAMED_IAM"

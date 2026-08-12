@@ -2,11 +2,14 @@
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from email.utils import parseaddr
 
 import boto3
 from botocore.exceptions import ClientError
+
+APPLICATION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$")
 
 TABLE_NAME = os.environ["TABLE_NAME"]
 TOPIC_ARN = os.environ["TOPIC_ARN"]
@@ -46,6 +49,10 @@ def _is_valid_email(email):
     return bool(parsed and "@" in parsed and "." in parsed.split("@")[-1])
 
 
+def _is_valid_application(application):
+    return bool(APPLICATION_PATTERN.match(application or ""))
+
+
 def _parse_json_body(event):
     raw_body = event.get("body") or "{}"
 
@@ -78,9 +85,13 @@ def lambda_handler(event, context):
     except ValueError as error:
         return _response(400, {"message": str(error)})
 
+    application = (body.get("application") or "").strip()
     email = (body.get("email") or "").strip().lower()
     name = (body.get("name") or "").strip()
     source = (body.get("source") or "landing-page").strip()
+
+    if not _is_valid_application(application):
+        return _response(400, {"message": "A valid application is required"})
 
     if not _is_valid_email(email):
         return _response(400, {"message": "A valid email is required"})
@@ -91,12 +102,15 @@ def lambda_handler(event, context):
     if source and len(source) > 80:
         return _response(400, {"message": "Source is too long"})
 
-    existing = table.get_item(Key={"email": email}, ProjectionExpression="email")
+    key = {"application": application, "email": email}
+
+    existing = table.get_item(Key=key, ProjectionExpression="email")
     if "Item" in existing:
-        logger.info("Email already subscribed: %s", email)
+        logger.info("Email already subscribed: %s (%s)", email, application)
         return _response(200, {"message": "Email Subscribed Successfully"})
 
     item = {
+        "application": application,
         "email": email,
         "name": name,
         "source": source,
@@ -111,15 +125,17 @@ def lambda_handler(event, context):
     except ClientError as error:
         code = error.response.get("Error", {}).get("Code")
         if code == "ConditionalCheckFailedException":
-            logger.info("Email already subscribed (race-safe check): %s", email)
+            logger.info("Email already subscribed (race-safe check): %s (%s)", email, application)
             return _response(200, {"message": "Email already subscribed"})
         return _response(500, {"message": "Failed to save subscriber"})
 
     try:
         sns.publish(
             TopicArn=TOPIC_ARN,
-            Subject="New Yo Programmer subscriber",
-            Message="New subscriber: {} <{}> from {}".format(name or "N/A", email, source),
+            Subject="New {} subscriber".format(application),
+            Message="New subscriber for {}: {} <{}> from {}".format(
+                application, name or "N/A", email, source
+            ),
         )
     except Exception:
         # Persisted successfully; notification failure should not rollback subscription.
