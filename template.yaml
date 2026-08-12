@@ -22,15 +22,15 @@ Parameters:
 
   ApiThrottlingBurstLimit:
     Type: Number
-    Default: 10
+    Default: 20
     MinValue: 1
-    Description: API Gateway HTTP API burst limit.
+    Description: API Gateway HTTP API burst limit. Shared across all clients (not per-IP).
 
   ApiThrottlingRateLimit:
     Type: Number
-    Default: 5
+    Default: 10
     MinValue: 1
-    Description: API Gateway HTTP API steady-state requests per second.
+    Description: API Gateway HTTP API steady-state requests per second. Shared across all clients (not per-IP).
 
 Resources:
   SubscribersTable:
