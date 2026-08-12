@@ -1,8 +1,16 @@
 {
   "info": {
     "name": "Subscriber Function API",
-    "description": "Postman collection for the subscriber-function SAM app: POST /subscribers (save) and GET /subscribers (list). Base URL comes from the SubscribersApiBaseUrl stack output.",
+    "description": "Postman collection for the subscriber-function SAM app: POST /subscribers (save) and GET /subscribers (list). Base URL comes from the SubscribersApiBaseUrl stack output. Every request requires the x-api-key header (SubscribersApiKey deploy parameter) - set it in the api_key collection variable.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "x-api-key", "type": "string" },
+      { "key": "value", "value": "{{api_key}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
   },
   "variable": [
     {
@@ -18,6 +26,11 @@
     {
       "key": "email",
       "value": "test@example.com",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "REPLACE_WITH_SUBSCRIBERS_API_KEY",
       "type": "string"
     }
   ],
@@ -178,6 +191,30 @@
           "response": []
         },
         {
+          "name": "Save Subscriber - Unauthorized (401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application\": \"{{application}}\",\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/subscribers",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"]
+            },
+            "description": "No x-api-key header sent. Expect 401 from API Gateway's authorizer before the Lambda even runs."
+          },
+          "response": []
+        },
+        {
           "name": "Save Subscriber - CORS Preflight (OPTIONS)",
           "request": {
             "method": "OPTIONS",
@@ -235,6 +272,27 @@
               "path": ["subscribers"]
             },
             "description": "Expect 400: An application query parameter is required."
+          },
+          "response": []
+        },
+        {
+          "name": "List Subscribers - Unauthorized (401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subscribers?application={{application}}",
+              "host": ["{{base_url}}"],
+              "path": ["subscribers"],
+              "query": [
+                {
+                  "key": "application",
+                  "value": "{{application}}"
+                }
+              ]
+            },
+            "description": "No x-api-key header sent. Expect 401 from API Gateway's authorizer before the Lambda even runs."
           },
           "response": []
         },

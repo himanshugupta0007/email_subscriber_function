@@ -32,6 +32,12 @@ Parameters:
     MinValue: 1
     Description: API Gateway HTTP API steady-state requests per second. Shared across all clients (not per-IP).
 
+  SubscribersApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 20
+    Description: Shared secret required in the x-api-key header to call POST or GET /subscribers.
+
 Resources:
   SubscribersTable:
     Type: AWS::DynamoDB::Table
@@ -74,9 +80,55 @@ Resources:
           - OPTIONS
         AllowHeaders:
           - content-type
+          - x-api-key
       DefaultRouteSettings:
         ThrottlingBurstLimit: !Ref ApiThrottlingBurstLimit
         ThrottlingRateLimit: !Ref ApiThrottlingRateLimit
+      Auth:
+        Authorizers:
+          ApiKeyAuthorizer:
+            FunctionArn: !GetAtt SubscribersAuthorizerFunction.Arn
+            AuthorizerPayloadFormatVersion: "2.0"
+            EnableSimpleResponses: true
+            Identity:
+              Headers:
+                - x-api-key
+        DefaultAuthorizer: ApiKeyAuthorizer
+
+  SubscribersAuthorizerFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: subscriber-stack-authorizer-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  SubscribersAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: subscriber-stack-authorizer
+      CodeUri: src/subscribers_authorizer/
+      Handler: app.lambda_handler
+      Role: !GetAtt SubscribersAuthorizerFunctionRole.Arn
+      Environment:
+        Variables:
+          API_KEY: !Ref SubscribersApiKey
+
+  SubscribersAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SubscribersAuthorizerFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SubscribersHttpApi}/*"
 
   SaveSubscriberFunctionRole:
     Type: AWS::IAM::Role
